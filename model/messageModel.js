@@ -8,8 +8,17 @@ const messageSchema = new mongoose.Schema(
     users: Array,
     sender: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Users",
       required: true,
+    },
+    senderPhotoURL: {
+      type: String,
+      default: "",
+    },
+    senderName: {
+      type: String,
+      min: 3,
+      max: 20,
     },
   },
   {

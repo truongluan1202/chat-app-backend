@@ -72,3 +72,18 @@ module.exports.getAllUsers = async (req, res, next) => {
     next(ex);
   }
 };
+
+module.exports.getAllUsersRoom = async (req, res, next) => {
+  try {
+    const addedUsers = req.body.addedUsers;
+    // find all user that does not match _id  $ne : not equal
+    const users = await User.find({ username: { $nin: addedUsers } }).select([
+      "username",
+      "avatarImage",
+      "_id",
+    ]);
+    return res.json(users);
+  } catch (ex) {
+    next(ex);
+  }
+};
