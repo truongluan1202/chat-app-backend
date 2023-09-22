@@ -6,6 +6,9 @@ const messageRoutes = require("./routes/messageRoutes");
 const roomRoutes = require("./routes/roomRoutes");
 const app = express();
 const socket = require("socket.io");
+const Room = require("./model/roomModel");
+const User = require("./model/userModel");
+
 require("dotenv").config();
 
 app.use(cors()); // ???
@@ -65,6 +68,7 @@ io.on("connection", (socket) => {
    */
   socket.on("send-msg", (data) => {
     console.log("receive send-msg");
+
     const sendUserSocket = onlineUsers.get(data.to);
     if (sendUserSocket) {
       console.log("emit msg-receive");
@@ -72,7 +76,27 @@ io.on("connection", (socket) => {
     }
   });
 
-  /* 
+  socket.on("send-msg-to-group", async (data) => {
+    console.log("receive send-msg-to-group");
+
+    const room = await Room.findById(data.roomId).select(["users"]);
+    const sendUsers = await User.find({ username: { $in: room.users } }).select(
+      ["_id"]
+    );
+
+    for (const user of sendUsers) {
+      const userId = user._id.toHexString();
+      const sendUserSocket = onlineUsers.get(userId);
+
+      if (sendUserSocket) {
+        console.log("emit msg-receive");
+        io.to(sendUserSocket).emit("msg-receive", data.newMsg);
+      }
+    }
+  });
+});
+
+/* 
     sample data : 
     data: {
         to: '650408f3db4515f2978641be',
@@ -80,4 +104,3 @@ io.on("connection", (socket) => {
         message: 'fas'
     }
   */
-});

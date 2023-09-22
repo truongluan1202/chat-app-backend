@@ -12,8 +12,16 @@ module.exports.addMessage = async (req, res, next) => {
       senderPhotoURL: senderPhotoURL,
     });
 
-    if (data) return res.json({ msg: "Message added successfully." });
-    else return res.json({ msg: "Failed to add message to the database" });
+    if (data) {
+      const newMsg = {
+        _id: data._id,
+        message: message,
+        createdAt: data.updatedAt,
+        photoURL: senderPhotoURL,
+        displayName: senderName,
+      };
+      return res.json(newMsg);
+    } else return res.json({ msg: "Failed to add message to the database" });
   } catch (ex) {
     next(ex);
   }
