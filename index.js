@@ -37,6 +37,7 @@ const server = app.listen(process.env.PORT, () => {
 // set up WebSocket communication for real-time events
 const io = socket(server, {
   cors: {
+    // origin: process.env.ORIGIN,
     origin: process.env.ORIGIN,
     credentials: true,
   },
