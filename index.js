@@ -37,36 +37,23 @@ const server = app.listen(process.env.PORT, () => {
 // set up WebSocket communication for real-time events
 const io = socket(server, {
   cors: {
-    // origin: process.env.ORIGIN,
     origin: process.env.ORIGIN,
     credentials: true,
   },
 });
 
-// initialize a global variable called "onlineUsers"
+// initialize a global variable
 global.onlineUsers = new Map();
+const activeRooms = {};
 
 //event handler which occur when a client connects to the server
 io.on("connection", (socket) => {
-  // store the connected socket in a global var called "chatSocket"
-  /* Note that if multiple clients connect simultaneously, the chatSocket
-   will be set to the last connected socket, which might not be what you intend.
-   */
   global.chatSocket = socket;
 
-  /* listen for an "add-user" event. When a client emits this event with a userId, 
-  you add an entry to the onlineUsers map, associating the userId with the socket 
-  ID of the connected client.
-  */
   socket.on("add-user", (userId) => {
     onlineUsers.set(userId, socket.id);
   });
 
-  /* listen for a "send-msg" event. When a client emits this event with a data object 
-  containing a recipient to and a message msg, you look up the recipient's socket ID in the 
-  onlineUsers map. If you find a socket ID, you use socket.to(sendUserSocket).emit(...) to send 
-  the message to the recipient.
-   */
   socket.on("send-msg", (data) => {
     console.log("receive send-msg");
 
@@ -77,24 +64,100 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("send-msg-to-group", async (data) => {
-    console.log("receive send-msg-to-group");
+  /* ************* */
+  socket.on("set-username", (username) => {
+    socket.username = username;
+    console.log("set username ", username);
+  });
 
-    const room = await Room.findById(data.roomId).select(["users"]);
-    const sendUsers = await User.find({ username: { $in: room.users } }).select(
-      ["_id"]
-    );
+  socket.on("join-room", (roomId) => {
+    console.log("user join room ", roomId);
+    socket.join(roomId);
+    if (!activeRooms[roomId]) {
+      activeRooms[roomId] = {
+        members: {},
+      };
+    }
 
-    for (const user of sendUsers) {
-      const userId = user._id.toHexString();
-      const sendUserSocket = onlineUsers.get(userId);
+    activeRooms[roomId].members[socket.id] = socket.username;
 
-      if (sendUserSocket) {
-        console.log("emit msg-receive");
-        io.to(sendUserSocket).emit("msg-receive", data.newMsg);
+    io.to(roomId).emit("user-joined", socket.username);
+  });
+
+  // socket.on("add-member", async (roomId) => {
+  //   const room = await Room.findById(roomId).select(["users"]);
+  //   const sendUsers = await User.find({ username: { $in: room.users } }).select(
+  //     ["_id", "username"]
+  //   );
+
+  //   for (const user of sendUsers) {
+  //     const userId = user._id.toHexString();
+  //     const sendUserSocket = onlineUsers.get(userId);
+
+  //     console.log(onlineUsers);
+  //     if (sendUserSocket) {
+  //       console.log("announce add member ", user.username);
+  //       io.to(sendUserSocket).emit("new-member");
+  //     }
+  //   }
+  // });
+
+  socket.on("send-message", ({ roomId, newMsg }) => {
+    console.log("Message received");
+
+    // Check if the room exists and the user is a participant
+    if (activeRooms[roomId] && activeRooms[roomId].members[socket.id]) {
+      // Broadcast the message to all users in the room
+      io.to(roomId).emit("message", newMsg);
+    } else {
+      console.log("User not authorized to send messages in the room");
+    }
+  });
+
+  socket.on("leave-room", (roomId) => {
+    console.log("user left room", roomId);
+    if (activeRooms[roomId]) {
+      // Mark the user as inactive in the room and remove them from the room
+      delete activeRooms[roomId].members[socket.id];
+      socket.leave(roomId);
+      console.log(activeRooms[roomId].members[socket.id]);
+      // Notify room participants about the user who left
+      io.to(roomId).emit("user-left", socket.username);
+    }
+  });
+
+  socket.on("disconnect", () => {
+    console.log("A user disconnected");
+
+    // Leave all rooms and notify participants about the user who left
+    for (const roomId in activeRooms) {
+      if (activeRooms[roomId].members[socket.id]) {
+        delete activeRooms[roomId].members[socket.id];
+        io.to(roomId).emit("user-left", socket.username);
       }
     }
   });
+
+  /* ******************** */
+
+  // socket.on("send-msg-to-group", async (data) => {
+  //   console.log("receive send-msg-to-group");
+
+  //   const room = await Room.findById(data.roomId).select(["users"]);
+  //   const sendUsers = await User.find({ username: { $in: room.users } }).select(
+  //     ["_id"]
+  //   );
+
+  //   for (const user of sendUsers) {
+  //     const userId = user._id.toHexString();
+  //     const sendUserSocket = onlineUsers.get(userId);
+
+  //     if (sendUserSocket) {
+  //       console.log("emit msg-receive");
+  //       io.to(sendUserSocket).emit("msg-receive", data.newMsg);
+  //     }
+  //   }
+  // });
 });
 
 /* 

@@ -42,21 +42,10 @@ module.exports.createRoom = async (req, res, next) => {
       users,
       description,
     });
-    return res.json({ status: true, room });
+    return res.json(room);
   } catch (err) {
     next(err);
   }
-  //   try {
-  //     const room = await Room.create({
-  //       roomName: "Sample1 Room",
-  //       users: ["1", "2", "3"], // Store user ObjectId(s) in the users array
-  //     });
-  //     // Save the room instance to the database
-  //     // const savedRoom = await room.save();
-  //     return res.json({ status: true, room });
-  //   } catch (error) {
-  //     next(error);
-  //   }
 };
 
 module.exports.getMembers = async (req, res, next) => {
